@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photorealistic 3D Maps in Maps JavaScript Polyline Demo</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        gmp-map-3d {
+            height: 1200px;
+        }
+    </style>
+</head>
+
+<body>
+    <gmp-map-3d mode="hybrid" heading="25" range="2500" tilt="45" center="60.317979, 9.396161">
+        <gmp-polyline-3d altitude-mode="relative-to-ground" stroke-color="rgba(25, 102, 210, 0.75)"
+            stroke-width="10"></gmp-polyline-3d>
+    </gmp-map-3d>
+
+    <script>
+        (g => {
+            let h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
+            b = b[c] || (b[c] = {});
+            let d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => {
+                a = m.createElement("script");
+                e.set("libraries", [...r] + "");
+                for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+                e.set("callback", c + ".maps." + q);
+                a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+                d[q] = f;
+                a.onerror = () => h = n(Error(p + " could not load."));
+                a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+                m.head.append(a);
+            }));
+            d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n))
+        })({
+            key: "AIzaSyCB-7SZNDUxZGxnWxrTvuAEC0xBMXEaAhk", // Replace with your actual API key
+            v: "alpha"
+        });
+    </script>
+
+    <script>
+        let map;
+        let polyline;
+        let hasReceivedClick = false;
+
+        async function initMap() {
+            const { Map3DElement, Marker3DElement } = await google.maps.importLibrary("maps3d");
+            map = document.querySelector('gmp-map-3d');
+            polyline = map.querySelector('gmp-polyline-3d');
+
+
+            map.addEventListener('gmp-click', handleMapClick);
+            // Initial fetch of coordinates
+        }
+
+        async function handleMapClick(event) {
+            const clickedLngLat = event.position;
+            const latitude = clickedLngLat.fD;
+            const longitude = clickedLngLat.gD;
+
+            const df = straightlines(latitude, longitude, 0.005, 0.5, 5);
+            const latList = df.lat;
+            const lonList = df.lon;
+            
+            const elevator = new google.maps.ElevationService();
+            const elevation = elevator.getElevationForLocations({ locations: [event.position]})
+            console.log(elevation);
+            console.log(event);
+            hasReceivedClick = true;
+
+
+            // Add a marker at the clicked location
+
+            addMarker(latitude, longitude);
+
+
+            sendMapClickDataToFlask(latitude, longitude);
+            fetchCoordinates(); // Fetch coordinates after each click if needed
+        }
+        async function addMarker(lat, lng) {
+            const { Marker3DElement } = await google.maps.importLibrary("maps3d");
+            const marker = document.createElement('gmp-marker-3d');
+            marker.position = { lat: lat, lng: lng };
+            map.appendChild(marker);
+            markers.push(marker); // Add the marker to the array
+        }
+
+
+        function straightlines(startLat, startLon, rValue=0.005, rangeValue=0.5, angleInterval = 5) {
+            const df = { lat: [], lon: [] };
+
+            for (let r = 0; r < rangeValue; r += rValue) {
+                const angles = [];
+                for (let angle = angleInterval; angle <= 360 + angleInterval; angle += angleInterval) {
+                    angles.push(angle);
+                }
+                const anglesRad = angles.map(angle => angle * Math.PI / 180);
+
+                const lonList = anglesRad.map(angleRad => startLon + r * Math.cos(angleRad));
+                const latList = anglesRad.map(angleRad => startLat + r * Math.sin(angleRad));
+
+                for (let i = 0; i < latList.length; i++) {
+                    df.lat.push(latList[i]);
+                    df.lon.push(lonList[i]);
+                }
+            }
+
+            return df;
+        }
+
+        async function sendMapClickDataToFlask(lat, lng) {
+            const dataToSend = { latitude: lat, longitude: lng };
+
+            try {
+                const response = await fetch('/receive_map_click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToSend)
+                });
+
+                if (response.ok) {
+                    const responseData = await response.json();
+                    console.log('Map click data sent successfully:', responseData, lat, lng);
+                    // Optionally handle the response from Flask
+                } else {
+                    console.error('Failed to send map click data:', response.status);
+                }
+            } catch (error) {
+                console.error('Error sending map click data:', error);
+            }
+        }
+
+        async function fetchCoordinates() {
+            try {
+                const response = await fetch('/get_coordinates');
+                if (!response.ok) {
+                    console.error('Error fetching coordinates:', response.status);
+                    return;
+                }
+                const coordinatesList = await response.json();
+                console.log("Fetched coordinates:", coordinatesList);
+
+                const formattedCoordinates = coordinatesList.map(coord => ({
+                    lat: coord[0],
+                    lng: coord[1],
+                    altitude: 10 // Assuming a default altitude, adjust if needed
+                }));
+
+                polyline.coordinates = formattedCoordinates;
+
+            } catch (error) {
+                console.error('Error fetching coordinates:', error);
+            }
+        }
+
+        initMap();
+    </script>
+</body>
+
+</html>

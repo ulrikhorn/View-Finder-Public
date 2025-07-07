@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Elevation Data App</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        #map { height: 500px; }
+    </style>
+</head>
+<body>
+    <h1>Elevation Data Processing</h1>
+
+    <div id="map"></div>
+
+    <form method="POST">
+        <input type="hidden" id="start_lat" name="start_lat">
+        <input type="hidden" id="start_lon" name="start_lon">
+        resolution: <input type="number" name="radius" value="0.005"><br>
+        <input type="submit" value="Process Data">
+    </form>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% endif %}
+
+    {% if map_html %}
+        {{ map_html|safe }}
+    {% else %}
+        {{ initial_map_html|safe }}
+    {% endif %}
+
+    <script>
+        var map = L.map('map').setView([59.976654, 10.671793], 10);
+        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: 'test'
+        }).addTo(map);
+
+        map.on('click', function(e) {
+            document.getElementById('start_lat').value = e.latlng.lat;
+            document.getElementById('start_lon').value = e.latlng.lng;
+            L.marker(e.latlng).addTo(map); // Optional: add a marker where the user clicked.
+        });
+    </script>
+
+</body>
+</html>
