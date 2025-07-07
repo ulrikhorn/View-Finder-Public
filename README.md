@@ -1,5 +1,6 @@
 # View_finder
 
+## NB ielevation3.py is missing as this contains my API key, the script will not work without it
 A python based web app that takes a location and outputs the furthest visible point in any direction. 
 
 How does it work>
