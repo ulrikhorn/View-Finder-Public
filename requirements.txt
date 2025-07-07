@@ -1,0 +1,8 @@
+pandas
+numpy
+urllib3
+flask
+folium
+geopy
+waitress
+dotenv
